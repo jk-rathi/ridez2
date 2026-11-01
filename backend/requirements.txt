@@ -1,0 +1,12 @@
+Flask==3.1.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.1.0
+PyJWT==2.10.1
+phonenumbers==8.13.55
+pytest==8.3.4
+pyodbc==5.2.0
+Flask-SocketIO==5.5.1
+requests==2.32.5
+python-dotenv==1.2.1
+tzdata==2025.2
+gunicorn==26.2.0

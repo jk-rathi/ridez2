@@ -1,0 +1,2 @@
+# Compatibility with Render Python services building from the repository root.
+-r backend/requirements.lock

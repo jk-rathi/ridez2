@@ -1,0 +1,34 @@
+# A paid instance is required for a persistent disk. Review costs in Render.
+services:
+  - type: web
+    name: ridez
+    runtime: docker
+    plan: starter
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /api/v1/ready
+    disk:
+      name: ridez-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:////var/data/ridez.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: USER_CODE_SECRET
+        generateValue: true
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: ROUTE_PROVIDER
+        value: google
+      - key: SIMULATOR_ENABLED
+        value: "0"
+      - key: GOOGLE_MAPS_SERVER_KEY
+        sync: false
+      - key: VITE_GOOGLE_MAPS_BROWSER_KEY
+        sync: false

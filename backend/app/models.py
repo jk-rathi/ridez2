@@ -244,3 +244,25 @@ class RidePayment(db.Model):
     def public(self):
         return dict(method=self.method, status=self.status, amount=format(self.amount, '.2f'), currency='INR',
                     confirmed_at=self.confirmed_at.isoformat()+'Z' if self.confirmed_at else None)
+
+
+class RideRating(db.Model):
+    """One final rating per participant per completed ride; comments are visible to admins only."""
+    __tablename__ = 'ride_ratings'
+    ride_id = db.Column(db.String(36), db.ForeignKey('rides.id'), primary_key=True)
+    rater_role = db.Column(db.String(8), primary_key=True)
+    rater_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    ratee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    stars = db.Column(db.Integer, nullable=False)
+    tags = db.Column(db.String(200))
+    comment = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, nullable=False)
+    __table_args__ = (db.CheckConstraint("rater_role IN ('rider','driver')", name='valid_rating_role'),
+                      db.CheckConstraint('stars BETWEEN 1 AND 5', name='valid_rating_stars'))
+
+    def public(self, include_comment=True):
+        result = dict(rater_role=self.rater_role, stars=self.stars, tags=self.tags.split('|') if self.tags else [],
+                      created_at=self.created_at.isoformat()+'Z')
+        if include_comment:
+            result['comment'] = self.comment
+        return result

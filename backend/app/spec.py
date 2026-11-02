@@ -108,3 +108,4 @@ _ride_param = [{'name': 'ride_id', 'in': 'path', 'required': True, 'schema': {'t
 SPEC['paths']['/rides/{ride_id}/payment-method'] = {'parameters': _ride_param, 'post': operation('Rider chooses CASH or ONLINE for a completed, unpaid ride', ['method'], protected=True)}
 SPEC['paths']['/rides/{ride_id}/confirm-cash'] = {'parameters': _ride_param, 'post': operation('Assigned driver confirms cash received; the first confirmation wins and is final', protected=True)}
 SPEC['paths']['/workspace']['get']['description'] += ' Driver workspaces include confirmed_earnings (payment confirmed) and pending_earnings (awaiting payment); allocated_earnings remains the total recorded split.'
+SPEC['paths']['/rides/{ride_id}/rating'] = {'parameters': _ride_param, 'post': operation('Rate the other participant of a completed ride (1-5 stars, optional tags and comment); final once submitted', ['stars'], protected=True)}

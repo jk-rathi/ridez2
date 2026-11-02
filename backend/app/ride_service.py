@@ -7,7 +7,7 @@ from . import db
 from . import ride_repository as repo
 from .models import User, DriverPresence, FareQuote, Ride, ActiveRide, Invitation, RevenueLedger
 from .services import ApiError, trip_otp, verify_trip_otp
-from . import location_service, matching, route_provider, fare_service, revenue_service, payment_service
+from . import location_service, matching, route_provider, fare_service, revenue_service, payment_service, rating_service
 import math
 
 
@@ -68,7 +68,7 @@ def public(ride, user, invitation=False):
     driver = repo.get(User, ride.driver_id) if ride.driver_id else None
     rider = repo.get(User, ride.rider_id)
     vehicle = {'registration':ride.vehicle_registration,'model':ride.vehicle_model,'color':ride.vehicle_color} if ride.vehicle_registration else None
-    result = dict(id=ride.id, status=ride.status, round_no=ride.round_no, radius_m=ride.radius_m, quote=quoted.public(), requested_at=ride.requested_at.isoformat() + 'Z', expires_at=ride.expires_at.isoformat() + 'Z', driver={'name': driver.name, 'user_code': driver.user_code, 'vehicle':vehicle} if driver else None, rider={'name': rider.name}, completed_at=ride.completed_at.isoformat() + 'Z' if ride.completed_at else None)
+    result = dict(id=ride.id, status=ride.status, round_no=ride.round_no, radius_m=ride.radius_m, quote=quoted.public(), requested_at=ride.requested_at.isoformat() + 'Z', expires_at=ride.expires_at.isoformat() + 'Z', driver={'name': driver.name, 'user_code': driver.user_code, 'vehicle':vehicle, 'rating': rating_service.summary(driver.id)} if driver else None, rider={'name': rider.name, 'rating': rating_service.summary(rider.id)}, completed_at=ride.completed_at.isoformat() + 'Z' if ride.completed_at else None)
     from .models import MockPayment
     from flask import current_app
     payment = db.session.get(MockPayment, ride.id)
@@ -78,6 +78,11 @@ def public(ride, user, invitation=False):
     result['payment'] = ride_payment.public() if ride_payment else None
     result['test_payments_enabled'] = current_app.config['TEST_PAYMENTS_ENABLED']
     result['cancellation'] = cancellation(ride, user) if ride.status == 'CANCELLED' else None
+    if ride.status == 'COMPLETED' and user.role in ('rider', 'driver'):
+        mine = rating_service.given(ride.id, user.role)
+        result['my_rating'] = mine.public() if mine else None
+    if user.role == 'admin':
+        result['ratings'] = rating_service.for_admin(ride.id)
     if not invitation and user.role in ('driver','admin'):
         allocation = repo.get(RevenueLedger, ride.id)
         result['settlement'] = allocation.public() if allocation else None
@@ -288,6 +293,9 @@ def snapshot(user):
         result['recent_cancellation'] = ({'ride_id': latest.id, **cancellation(latest, user)}
             if not active and latest and latest.status == 'CANCELLED' and latest.cancelled_at
             and latest.cancelled_at >= now()-timedelta(minutes=10) else None)
+    if user.role in ('rider', 'driver'):
+        result['my_rating_summary'] = rating_service.summary(user.id)
+        result['rating_tags'] = rating_service.TAGS[user.role]
     if user.role == 'rider':
         current = repo.get(Ride, active.ride_id) if active else None
         result['trip_otp'] = trip_otp(current) if current and current.status in ('SEARCHING', 'ASSIGNED', 'ARRIVING', 'WAITING') else None

@@ -161,12 +161,14 @@ def driver_list(params):
     total=db.session.scalar(select(func.count()).select_from(query.subquery()))
     drivers=db.session.scalars(query.order_by(User.id.desc()).offset((page-1)*20).limit(20)).all()
     from .location_service import public as location_public
+    from . import rating_service
     items=[]
     for driver in drivers:
         claim=repo.get(ActiveRide,driver.id)
         ride=repo.get(Ride,claim.ride_id) if claim else None
         items.append(driver.public() | {'location':location_public(repo.get(DriverLocation,driver.id)),
-            'active_ride':{'id':ride.id,'status':ride.status} if ride else None})
+            'active_ride':{'id':ride.id,'status':ride.status} if ride else None,
+            'rating':rating_service.summary(driver.id)})
     return dict(page=page,page_size=20,total=total,items=items)
 
 

@@ -85,6 +85,16 @@ def confirm_cash(ride_id):
     return jsonify(payment=payment_service.confirm_cash(g.user, ride_id))
 
 
+@api.post('/rides/<ride_id>/rating')
+@authenticated()
+def rate(ride_id):
+    from . import rating_service
+    if g.user.role not in ('rider', 'driver'):
+        from .services import ApiError
+        raise ApiError('Only the rider and driver of a trip can rate it', 403)
+    return jsonify(rating=rating_service.submit(g.user, ride_id, body()))
+
+
 @api.post('/rides/<ride_id>/<action>')
 @authenticated()
 def progress(ride_id, action):

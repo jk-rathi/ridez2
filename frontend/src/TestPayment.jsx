@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { Banknote, Smartphone } from 'lucide-react';
+import RatingForm from './Rating';
 import { api } from './api';
 
 const warning='TEST PAYMENT — no money transferred';
@@ -69,7 +70,7 @@ export function PaymentPrompt({ride,token,onClose}) {
   }
   const later=<button className="text-link pay-later" onClick={onClose}>Pay later</button>;
   let content;
-  if(confirmed)content=<><PaymentSuccess amount={amount} method={method}/><button className="button dark full" onClick={onClose}>Done</button></>;
+  if(confirmed)content=<><PaymentSuccess amount={amount} method={method}/><RatingForm ride={ride} role="rider" token={token}/><button className={`button ${ride.my_rating?'dark':'subtle'} full pay-done`} onClick={onClose}>Done</button></>;
   else if(view==='cash')content=<><p className="pay-label">Please pay in cash</p><p className="pay-amount">{money(amount)}</p><p className="pay-cash-to"><Banknote size={20}/>Hand the cash to {driver}</p><p className="pay-waiting" role="status"><span className="pay-spinner" aria-hidden="true"/>Waiting for {driver} to confirm…</p>{online && <button className="button subtle full" disabled={busy} onClick={()=>choose('ONLINE')}>Pay online instead<Smartphone size={20}/></button>}{later}</>;
   else if(view==='online' && qr && testPayment?.status==='FAILED')content=<><div className="pay-failed" role="alert"><strong>Payment failed</strong><p>The online payment didn’t go through. Try again or pay by cash.</p></div><button className="button dark full" onClick={generate} disabled={qrBusy}>{qrBusy?'Generating…':'Try again'}</button><button className="button subtle full" disabled={busy} onClick={()=>choose('CASH')}>Pay by cash instead<Banknote size={20}/></button>{later}</>;
   else if(view==='online' && qr)content=<><p className="pay-amount">{money(amount)}</p><div className="pay-qr"><img src={qr} width="220" height="220" alt="Scan to simulate payment. No money is transferred."/></div><a className="button lime full" href={result.url} target="_blank" rel="noreferrer">Open payment page</a><p className="pay-waiting" role="status"><span className="pay-spinner" aria-hidden="true"/>Waiting for payment…</p><p className="pay-hint">Scan with another phone, or open the payment page on this device. The link expires in 15 minutes.</p><button className="button subtle full" disabled={busy} onClick={()=>choose('CASH')}>Pay by cash instead<Banknote size={20}/></button>{later}</>;

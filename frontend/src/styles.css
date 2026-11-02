@@ -101,3 +101,16 @@
 .earning-badge{display:inline-block;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;background:#fff3d6;color:#7a4d07}.earning-badge.paid{background:#edf4e2;color:#3c5a24}
 @media(max-width:760px){.earnings-summary{grid-template-columns:1fr}.collect-amount{font-size:38px}}
 .pay-dialog .pay-waiting+.button{margin-top:18px}
+.rating-badge{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:#8a5a00;background:#fff3d6;border-radius:20px;padding:3px 9px;vertical-align:middle;font-family:'DM Sans',sans-serif;letter-spacing:0}.rating-badge svg{color:#e0a200}.rating-badge small{font-weight:500;color:#9a7a3a;margin-left:2px}.rating-badge.new{color:#3c5a24;background:#edf4e2}
+.rating-form{margin-top:18px;padding:18px;border:1px solid #e1e7d8;border-radius:12px;background:#fbfcf8;text-align:center}.rating-form h3{font-size:17px;line-height:1.35}
+.pay-dialog .rating-form{margin:4px 0 14px;background:#fff}
+.rating-stars{display:flex;justify-content:center;gap:4px;margin:12px 0 4px}.rating-stars button{background:none;border:0;padding:4px;color:#cfd6c6;transition:transform .12s,color .12s}.rating-stars button.on{color:#f0b000}.rating-stars button:hover{transform:scale(1.12)}
+.rating-word{font-size:13px;font-weight:600;color:var(--ink);min-height:22px}
+.rating-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px 0}.rating-tags button{border:1px solid #d6dfcb;background:#fff;border-radius:20px;padding:8px 13px;font-size:13px;color:var(--ink)}.rating-tags button.chosen{background:var(--ink);border-color:var(--ink);color:#fff}
+.rating-comment{display:block;text-align:left;margin:10px 0 14px}.rating-comment span{display:block;font-size:11px;color:var(--muted);margin-bottom:6px}.rating-comment textarea{width:100%;border:1px solid #dce4cf;border-radius:8px;padding:10px;font:inherit;font-size:14px;resize:vertical;background:#fff;color:var(--ink)}
+.rating-done{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:16px;padding:12px;border-radius:10px;background:#fff8e6;font-size:13px;color:#6b4a00}
+.stars-shown{display:inline-flex;gap:1px;color:#f0b000;vertical-align:middle}
+.invite-rider{display:flex;align-items:center;gap:8px;font-size:15px!important;font-weight:600;color:var(--ink)!important;margin:0 0 6px!important}
+.my-rating-line{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:18px;color:#68735f}
+.admin-ratings{display:flex;flex-direction:column;gap:10px;margin-top:16px}.admin-ratings>div{padding:12px;border-radius:9px;background:#f6f8f1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px}.admin-ratings p{width:100%;margin:2px 0 0!important;font-style:italic;color:var(--ink)}
+.pay-done{margin-top:6px}

@@ -117,13 +117,49 @@ def create_app(config=None):
         click.echo(f'Application route probe succeeded: provider={route["provider"]}, distance_m={route["distance_m"]}, duration_seconds={route["duration_seconds"]}')
 
     @app.cli.command('create-admin')
-    @click.option('--mobile', prompt=True)
-    @click.option('--name', prompt=True)
-    @click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True)
-    def create_admin(mobile, name, password):
-        from .services import register
-        register({'mobile': mobile, 'name': name, 'password': password, 'role': 'admin'}, allow_admin=True)
-        click.echo('Admin created')
+    @click.option('--mobile', help='Mobile number with country code, e.g. +919876543210')
+    @click.option('--name', help='Admin display name')
+    @click.option('--password', help='Password (10-128 characters). Omit to be prompted.')
+    @click.option('--show-password', is_flag=True, help='Show the password while typing.')
+    def create_admin(mobile, name, password, show_password):
+        """Create an admin account. Prompts for anything not passed as an option."""
+        from .services import register, normalize, ApiError
+        from . import repositories as users
+
+        while True:
+            if not mobile:
+                mobile = click.prompt('Mobile (with country code, e.g. +919876543210)').strip()
+            try:
+                normalized = normalize(mobile)
+                if users.by_mobile(normalized):
+                    raise ApiError('An account with this mobile already exists')
+                break
+            except ApiError as error:
+                click.echo(f'Error: {error.message}', err=True)
+                mobile = None
+
+        while not name or not name.strip():
+            name = click.prompt('Name', default='Admin')
+
+        while True:
+            if not password:
+                if not show_password:
+                    click.echo('Password is hidden while typing (nothing will appear). Use --show-password to see it.')
+                password = click.prompt('Password (10-128 characters)', hide_input=not show_password)
+                if not show_password and click.prompt('Repeat password', hide_input=True) != password:
+                    click.echo('Error: passwords do not match, try again.', err=True)
+                    password = None
+                    continue
+            if 10 <= len(password) <= 128:
+                break
+            click.echo(f'Error: password must be 10-128 characters (got {len(password)}).', err=True)
+            password = None
+
+        try:
+            register({'mobile': normalized, 'name': name, 'password': password, 'role': 'admin'}, allow_admin=True)
+        except ApiError as error:
+            raise click.ClickException(error.message)
+        click.echo(f'Admin created. Sign in with mobile {normalized}.')
 
     @app.cli.command('bootstrap-admin')
     def bootstrap_admin_command():

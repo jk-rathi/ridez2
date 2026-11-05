@@ -43,6 +43,7 @@ class FareQuote(db.Model):
     time_fare = db.Column(db.Numeric(10, 2), nullable=False)
     total = db.Column(db.Numeric(10, 2), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, index=True)
     pickup_lat = db.Column(db.Float)
     pickup_lng = db.Column(db.Float)
     destination_lat = db.Column(db.Float)

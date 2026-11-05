@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -12,7 +13,7 @@ from .models import FarePolicy, Ride, FareQuote, DriverLocation
 from .location_service import coordinate, distance_m, utcnow
 from .services import ApiError
 
-DEFAULT_POLICY = dict(base='40.00',per_km='12.00',per_minute='2.00',minimum='40.00',timezone='Asia/Kolkata',surge_enabled=False,max_multiplier='2.00',traffic_enabled=False,traffic_threshold='1.25',traffic_multiplier='1.25',demand_enabled=False,demand_threshold='2.00',demand_multiplier='1.25',demand_min_requests=5,zones=[])
+DEFAULT_POLICY = dict(base='40.00',per_km='12.00',per_minute='2.00',minimum='40.00',timezone='Asia/Kolkata',surge_enabled=False,max_multiplier='2.00',traffic_enabled=False,traffic_threshold='1.25',traffic_multiplier='1.25',demand_enabled=False,demand_threshold='2.00',demand_multiplier='1.25',demand_min_requests=5,volume_enabled=False,volume_radius_m=1000,volume_window_minutes=10,volume_tiers=[dict(min_requests=20,multiplier='1.25'),dict(min_requests=40,multiplier='1.50')],zones=[])
 
 
 def money(value):
@@ -21,7 +22,8 @@ def money(value):
 
 def current():
     row=db.session.scalar(select(FarePolicy).order_by(FarePolicy.version.desc()).limit(1))
-    return (row.version,json.loads(row.settings)) if row else (0,copy.deepcopy(DEFAULT_POLICY))
+    # Policies saved before a setting existed inherit its (disabled) default.
+    return (row.version,copy.deepcopy(DEFAULT_POLICY)|json.loads(row.settings)) if row else (0,copy.deepcopy(DEFAULT_POLICY))
 
 
 def decimal_field(data,key,low='0',high='100000'):
@@ -45,7 +47,7 @@ def validate(data):
         policy[key]=decimal_field(data,key,'1','5')
     for key in ('traffic_threshold','demand_threshold'):
         policy[key]=decimal_field(data,key,'1','100')
-    for key in ('surge_enabled','traffic_enabled','demand_enabled'):
+    for key in ('surge_enabled','traffic_enabled','demand_enabled','volume_enabled'):
         if not isinstance(data.get(key),bool):
             raise ApiError(f'{key} must be true or false')
         policy[key]=data[key]
@@ -53,6 +55,25 @@ def validate(data):
     if isinstance(minimum,bool) or not isinstance(minimum,int) or not 1<=minimum<=1000:
         raise ApiError('Demand minimum requests must be an integer between 1 and 1000')
     policy['demand_min_requests']=minimum
+    for key,label,low,high in (('volume_radius_m','Request-volume radius (metres)',100,10000),('volume_window_minutes','Request-volume window (minutes)',1,120)):
+        value=data.get(key)
+        if isinstance(value,bool) or not isinstance(value,int) or not low<=value<=high:
+            raise ApiError(f'{label} must be an integer between {low} and {high}')
+        policy[key]=value
+    tiers=data.get('volume_tiers')
+    if not isinstance(tiers,list) or len(tiers)>5 or (policy['volume_enabled'] and not tiers):
+        raise ApiError('Use 1–5 request-volume tiers')
+    policy['volume_tiers']=[]
+    for tier in tiers:
+        if not isinstance(tier,dict):
+            raise ApiError('Every request-volume tier must be an object')
+        count=tier.get('min_requests')
+        if isinstance(count,bool) or not isinstance(count,int) or not 2<=count<=10000:
+            raise ApiError('Tier request counts must be integers between 2 and 10000')
+        policy['volume_tiers'].append(dict(min_requests=count,multiplier=decimal_field(tier,'multiplier','1','5')))
+    policy['volume_tiers'].sort(key=lambda tier:tier['min_requests'])
+    if len({tier['min_requests'] for tier in policy['volume_tiers']})!=len(policy['volume_tiers']):
+        raise ApiError('Each request-volume tier needs a different request count')
     try:
         zone=data.get('timezone')
         if not isinstance(zone,str) or len(zone)>80:
@@ -141,7 +162,25 @@ def demand_signal(pickup,at):
     return requests,Decimal(requests)/max(1,drivers)
 
 
-def calculate(route,pickup,at=None):
+def request_volume(pickup,at,radius_m,window_minutes,rider_id=None):
+    """Distinct riders who asked for a fare with a pickup near this point recently.
+
+    Counting riders rather than quotes stops one person refreshing a quote from
+    pushing up the price for everyone. The current rider counts as one request."""
+    since=at-timedelta(minutes=window_minutes)
+    lat_span=radius_m/111_000
+    lng_span=radius_m/(111_000*max(0.01,math.cos(math.radians(pickup[0]))))
+    rows=db.session.execute(select(FareQuote.rider_id,FareQuote.pickup_lat,FareQuote.pickup_lng).where(
+        FareQuote.created_at>since,FareQuote.created_at<=at,
+        FareQuote.pickup_lat.between(pickup[0]-lat_span,pickup[0]+lat_span),
+        FareQuote.pickup_lng.between(pickup[1]-lng_span,pickup[1]+lng_span))).all()
+    riders={rider for rider,lat,lng in rows if distance_m(*pickup,lat,lng)<=radius_m}
+    if rider_id is not None:
+        riders.add(rider_id)
+    return len(riders)
+
+
+def calculate(route,pickup,at=None,rider_id=None):
     version,policy=current()
     at=at or utcnow()
     base=Decimal(policy['base'])
@@ -152,6 +191,7 @@ def calculate(route,pickup,at=None):
     multipliers=[(Decimal(1),'No surge')]
     traffic_ratio=None
     demand_ratio=None
+    volume=None
     applied=[]
     if route['baseline_seconds']:
         traffic_ratio=Decimal(route['duration_seconds'])/route['baseline_seconds']
@@ -167,6 +207,11 @@ def calculate(route,pickup,at=None):
             requests,demand_ratio=demand_signal(pickup,at)
             if requests>=policy['demand_min_requests'] and demand_ratio>=Decimal(policy['demand_threshold']):
                 multipliers.append((Decimal(policy['demand_multiplier']),'High demand within 1 km'))
+        if policy['volume_enabled'] and policy['volume_tiers']:
+            volume=request_volume(pickup,at,policy['volume_radius_m'],policy['volume_window_minutes'],rider_id)
+            reached=[tier for tier in policy['volume_tiers'] if volume>=tier['min_requests']]
+            if reached:
+                multipliers.append((Decimal(reached[-1]['multiplier']),f"Busy area: {reached[-1]['min_requests']}+ riders requesting nearby"))
     highest=max(value for value,_ in multipliers)
     multiplier=min(highest,Decimal(policy['max_multiplier']))
     reason='; '.join(reason for value,reason in multipliers if value==highest and value>1) or 'No surge'
@@ -176,5 +221,5 @@ def calculate(route,pickup,at=None):
     if total>Decimal('99999999.99'):
         raise ApiError('Fare exceeds the supported maximum. Review fare settings',422)
     snapshot={key:policy[key] for key in ('base','per_km','per_minute','minimum','max_multiplier','timezone')}
-    snapshot.update(zone_ids=applied,traffic_ratio=str(traffic_ratio) if traffic_ratio is not None else None,demand_ratio=str(demand_ratio) if demand_ratio is not None else None)
+    snapshot.update(zone_ids=applied,traffic_ratio=str(traffic_ratio) if traffic_ratio is not None else None,demand_ratio=str(demand_ratio) if demand_ratio is not None else None,request_volume=volume)
     return dict(base=base,distance_fare=distance_fare,time_fare=time_fare,subtotal=subtotal,minimum_adjustment=subtotal-components,surge_multiplier=multiplier,surge_amount=total-subtotal,surge_reason=reason[:500],total=total,fare_rule_version=version,rate_snapshot=json.dumps(snapshot))

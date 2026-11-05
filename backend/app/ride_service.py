@@ -43,8 +43,9 @@ def quote(user, data):
         destination_point=(location_service.coordinate(data.get('destination_lat'),'Destination latitude',90),location_service.coordinate(data.get('destination_lng'),'Destination longitude',180))
     expire()
     route=route_provider.compute((latitude,longitude),destination_point,(pickup,destination))
-    fare=fare_service.calculate(route,(latitude,longitude))
-    result=repo.add(FareQuote(id=str(uuid4()),rider_id=user.id,pickup=pickup,destination=destination,pickup_lat=latitude,pickup_lng=longitude,destination_lat=destination_point[0] if destination_point else None,destination_lng=destination_point[1] if destination_point else None,provider=route['provider'],distance_km=money(Decimal(route['distance_m'])/1000),distance_m=route['distance_m'],duration_min=math.ceil(route['duration_seconds']/60),duration_seconds=route['duration_seconds'],baseline_seconds=route['baseline_seconds'],expires_at=now()+timedelta(minutes=5),**fare))
+    created=now()
+    fare=fare_service.calculate(route,(latitude,longitude),at=created,rider_id=user.id)
+    result=repo.add(FareQuote(id=str(uuid4()),rider_id=user.id,pickup=pickup,destination=destination,pickup_lat=latitude,pickup_lng=longitude,destination_lat=destination_point[0] if destination_point else None,destination_lng=destination_point[1] if destination_point else None,provider=route['provider'],distance_km=money(Decimal(route['distance_m'])/1000),distance_m=route['distance_m'],duration_min=math.ceil(route['duration_seconds']/60),duration_seconds=route['duration_seconds'],baseline_seconds=route['baseline_seconds'],created_at=created,expires_at=created+timedelta(minutes=5),**fare))
     repo.commit()
     # Route geometry is returned for immediate display, not retained as raw provider data.
     return result.public() | {'polyline':route['polyline']}

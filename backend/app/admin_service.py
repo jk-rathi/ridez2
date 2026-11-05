@@ -80,11 +80,13 @@ def audit_detail(category,identifier):
     previous=repo.get(FarePolicy,record.version-1)
     before=json.loads(previous.settings) if previous else DEFAULT_POLICY
     after=json.loads(record.settings)
-    labels={'base':'Base fare','per_km':'Fare per km','per_minute':'Fare per minute','minimum':'Minimum fare','timezone':'Schedule timezone','surge_enabled':'Surge enabled','max_multiplier':'Maximum surge','traffic_enabled':'Traffic surge enabled','traffic_threshold':'Traffic threshold','traffic_multiplier':'Traffic multiplier','demand_enabled':'Demand surge enabled','demand_threshold':'Demand threshold','demand_multiplier':'Demand multiplier','demand_min_requests':'Minimum demand requests','zones':'Surge zones'}
+    labels={'base':'Base fare','per_km':'Fare per km','per_minute':'Fare per minute','minimum':'Minimum fare','timezone':'Schedule timezone','surge_enabled':'Surge enabled','max_multiplier':'Maximum surge','traffic_enabled':'Traffic surge enabled','traffic_threshold':'Traffic threshold','traffic_multiplier':'Traffic multiplier','demand_enabled':'Demand surge enabled','demand_threshold':'Demand threshold','demand_multiplier':'Demand multiplier','demand_min_requests':'Minimum demand requests','volume_enabled':'Request-volume surge enabled','volume_radius_m':'Request-volume radius (m)','volume_window_minutes':'Request-volume window (min)','volume_tiers':'Request-volume tiers','zones':'Surge zones'}
     def describe(key,value):
         if key=='zones':
             days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
             return '; '.join(f"{zone['name']} · {zone['multiplier']}× · {zone['radius_m']} m around {zone['latitude']}, {zone['longitude']} · {', '.join(days[day] for day in zone['days'])} · {zone['start']}–{zone['end']} · {'enabled' if zone['enabled'] else 'paused'}" for zone in value) or 'No zones'
+        if key=='volume_tiers':
+            return '; '.join(f"{tier['min_requests']}+ riders → {tier['multiplier']}×" for tier in value or []) or 'No tiers'
         if isinstance(value,bool):
             return 'Enabled' if value else 'Disabled'
         return ('₹' if key in ('base','per_km','per_minute','minimum') else '')+str(value)

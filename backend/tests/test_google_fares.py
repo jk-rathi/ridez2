@@ -217,3 +217,70 @@ def test_routing_diagnostic_uses_exact_provider_without_printing_key(app):
         result=app.test_cli_runner().invoke(args=['check-routing'])
     assert result.exit_code==0 and 'No Google request made' in result.output
     request.assert_not_called()
+
+
+def add_quote(rider_id,lat=19.076,lng=72.8777,minutes_ago=1):
+    created=utcnow()-timedelta(minutes=minutes_ago)
+    db.session.add(FareQuote(id=str(__import__('uuid').uuid4()),rider_id=rider_id,pickup='P',destination='D',pickup_lat=lat,pickup_lng=lng,distance_km=1,duration_min=1,base=40,distance_fare=0,time_fare=0,total=40,created_at=created,expires_at=created+timedelta(minutes=5)))
+
+
+def volume_policy(**overrides):
+    policy=copy.deepcopy(fare_service.DEFAULT_POLICY)
+    policy.update(surge_enabled=True,volume_enabled=True,volume_radius_m=1000,volume_window_minutes=10,volume_tiers=[dict(min_requests=3,multiplier='1.25'),dict(min_requests=4,multiplier='1.75')])
+    return policy|overrides
+
+
+def test_request_volume_counts_distinct_nearby_recent_riders(client,app,actors):
+    rider,driver,admin=actors['rider']['id'],actors['driver']['id'],actors['admin']['id']
+    with app.app_context():
+        for _ in range(5):
+            add_quote(rider)                     # repeated quotes from one rider count once
+        add_quote(driver,lat=19.0805)            # ~500 m away: inside
+        add_quote(admin,lat=19.10)               # ~2.7 km away: outside
+        add_quote(admin,minutes_ago=30)          # too old
+        db.session.commit()
+        at=utcnow()
+        assert fare_service.request_volume((19.076,72.8777),at,1000,10)==2
+        assert fare_service.request_volume((19.076,72.8777),at,1000,10,rider_id=rider)==2
+        assert fare_service.request_volume((19.076,72.8777),at,1000,10,rider_id=999)==3
+        assert fare_service.request_volume((19.076,72.8777),at,5000,60)==3
+
+
+def test_request_volume_tiers_apply_highest_reached(client,app,actors):
+    assert save(client,actors,volume_policy()).status_code==200
+    route=dict(distance_m=1000,duration_seconds=60,baseline_seconds=None)
+    with app.app_context():
+        assert fare_service.calculate(route,(19.076,72.8777),rider_id=1)['surge_multiplier']==Decimal('1.00')
+        add_quote(actors['rider']['id'])
+        add_quote(actors['driver']['id'])
+        db.session.commit()
+        fare=fare_service.calculate(route,(19.076,72.8777),rider_id=999)
+        assert fare['surge_multiplier']==Decimal('1.25') and 'Busy area: 3+' in fare['surge_reason']
+        assert json.loads(fare['rate_snapshot'])['request_volume']==3
+        add_quote(actors['admin']['id'])
+        db.session.commit()
+        assert fare_service.calculate(route,(19.076,72.8777),rider_id=999)['surge_multiplier']==Decimal('1.75')
+        # Far from the busy area: no surge.
+        assert fare_service.calculate(route,(19.2,72.9),rider_id=999)['surge_multiplier']==Decimal('1.00')
+
+
+def test_quote_endpoint_records_time_and_applies_volume_surge(client,app,actors):
+    assert save(client,actors,volume_policy(volume_tiers=[dict(min_requests=2,multiplier='1.50')])).status_code==200
+    first=post(client,actors,'rider','/fares/quotes',pickup='A',destination='B',pickup_lat=19.076,pickup_lng=72.8777).json['quote']
+    assert first['surge_multiplier']=='1.00'
+    with app.app_context():
+        assert db.session.get(FareQuote,first['id']).created_at is not None
+        add_quote(actors['driver']['id'])
+        db.session.commit()
+    second=post(client,actors,'rider','/fares/quotes',pickup='A',destination='B',pickup_lat=19.076,pickup_lng=72.8777).json['quote']
+    assert second['surge_multiplier']=='1.50'
+
+
+def test_request_volume_validation_and_legacy_policy_defaults(client,app,actors):
+    for bad in [dict(volume_tiers=[]),dict(volume_tiers=[dict(min_requests=1,multiplier='1.2')]),dict(volume_tiers=[dict(min_requests=5,multiplier='6')]),dict(volume_tiers=[dict(min_requests=5,multiplier='1.2')]*2),dict(volume_radius_m=50),dict(volume_window_minutes=0),dict(volume_enabled='yes')]:
+        assert save(client,actors,volume_policy(**bad)).status_code==400,bad
+    with app.app_context():
+        legacy={key:value for key,value in fare_service.DEFAULT_POLICY.items() if not key.startswith('volume_')}
+        db.session.add(FarePolicy(version=1,settings=json.dumps(legacy),updated_by=actors['admin']['id'],reason='old',created_at=utcnow()))
+        db.session.commit()
+        assert fare_service.current()[1]['volume_enabled'] is False

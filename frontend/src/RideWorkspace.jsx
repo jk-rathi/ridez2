@@ -15,6 +15,7 @@ import { PaymentStatusLine, DriverCollectCard, usePaymentConfirmedFlash, Payment
 import RatingForm, { RatingBadge, RatingTags, StarsShown } from './Rating';
 import CancellationNotice from './CancellationNotice';
 import HistoryExport from './HistoryExport';
+import { useConfirm } from './ConfirmDialog';
 
 const currency = amount => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount));
 const labels = { SEARCHING:'Finding your driver', ASSIGNED:'Driver assigned', ARRIVING:'On the way to pickup', WAITING:'Waiting at pickup', IN_PROGRESS:'Trip in progress', COMPLETED:'Trip completed', CANCELLED:'Ride cancelled', NO_DRIVER_FOUND:'No driver found' };
@@ -71,6 +72,7 @@ function QuoteDetails({ quote }) {
 }
 
 function RideCard({ride,role,perform,disabled,tripOtp,availabilityPreference,token}) {
+  const confirm=useConfirm();
   const next=actions[ride.status];
   const assigned=!!ride.driver && ['ASSIGNED','ARRIVING','WAITING','IN_PROGRESS'].includes(ride.status) && ['rider','driver'].includes(role);
   const [otp,setOtp]=useState(''),[cancelling,setCancelling]=useState(false);
@@ -82,7 +84,7 @@ function RideCard({ride,role,perform,disabled,tripOtp,availabilityPreference,tok
     {ride.status==='SEARCHING' && <><Countdown deadline={ride.expires_at}/><p>Round {ride.round_no} · searching within {ride.radius_m} m. Radius expands by 500 m every 30 seconds, up to the configured limit.</p></>}
     {role==='driver' && !cancelling && ride.status==='WAITING' && <OtpInput key={ride.id} onChange={setOtp} disabled={disabled}/>}
     {!cancelling && availabilityPreference}
-    {role==='driver' && !cancelling && next && <button className="button dark full trip-primary-action" disabled={disabled || (next[0]==='start' && otp.length!==6)} onClick={()=>{if(next[0]!=='complete' || window.confirm('Complete this trip and record the earnings allocation?'))perform(`/rides/${ride.id}/${next[0]}`,next[0]==='start'?{otp}:{});}}>{next[1]}<ArrowRight size={20}/></button>}
+    {role==='driver' && !cancelling && next && <button className="button dark full trip-primary-action" disabled={disabled || (next[0]==='start' && otp.length!==6)} onClick={async()=>{if(next[0]!=='complete' || await confirm({title:'Complete this trip?',message:`Drop-off at ${ride.quote.destination}. This ends the trip and records the earnings.`,confirmLabel:'Complete trip'}))perform(`/rides/${ride.id}/${next[0]}`,next[0]==='start'?{otp}:{});}}>{next[1]}<ArrowRight size={20}/></button>}
     {((role==='rider' && ['SEARCHING','ASSIGNED','ARRIVING','WAITING'].includes(ride.status)) || (role==='driver' && ride.driver && ['ASSIGNED','ARRIVING','WAITING'].includes(ride.status))) && <CancelRideControl ride={ride} role={role} perform={perform} disabled={disabled} onReview={value=>{setCancelling(value);setOtp('');}}/>}
     {['driver','admin'].includes(role) && ride.settlement && <div className="settlement"><strong>Allocation recorded · not a payment</strong><span>Driver ({ride.settlement.driver_pct}%): {currency(ride.settlement.driver_amount)}</span><span>Company ({ride.settlement.company_pct}%): {currency(ride.settlement.company_amount)}</span></div>}
     <PaymentStatusLine ride={ride}/>

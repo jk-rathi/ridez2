@@ -135,3 +135,9 @@
 @media(max-width:900px){.viz-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.viz-pair{grid-template-columns:1fr}}
 @media(max-width:560px){.viz-download{margin-left:0!important}.viz-stat{display:block!important;padding:16px}.viz-stat strong{font-size:22px;margin:8px 0 4px!important}}
 .history-export{display:flex;flex-wrap:wrap;align-items:end;gap:12px;background:white;border:1px solid #e1e7d8;border-radius:10px;padding:16px 18px;margin:14px 0 18px}.history-export>div{flex:1 1 220px;display:flex;flex-direction:column;gap:3px}.history-export strong{font-size:14px;color:#243c23}.history-export small{font-size:11px;color:#68735f}.history-export label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#68735f}.history-export input{border:1px solid #dce4cf;border-radius:6px;padding:8px 10px;font:inherit;color:#243c23;background:#fafbf7}.history-export .button{margin:0;min-height:40px;padding:10px 16px;gap:8px}.history-export .form-error,.history-export-note{flex-basis:100%;margin:0;font-size:12px}.history-export-note{color:#68735f}
+/* In-page confirmation popup (replaces browser alert/confirm dialogs). */
+.confirm-dialog{border:0;padding:0;border-radius:14px;width:min(420px,calc(100vw - 32px));box-shadow:0 24px 60px #0003;color:var(--ink)}.confirm-dialog::backdrop{background:#16231a66;backdrop-filter:blur(2px)}.confirm-dialog[open]{animation:confirm-in .16s ease-out}
+.confirm-body{padding:24px 24px 20px}.confirm-body h2{margin:0 0 10px;font-size:20px}.confirm-body p{margin:0;color:#5b6852;font-size:14px;line-height:1.5}
+.confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}.confirm-actions .button{margin:0;min-height:42px;padding:10px 18px}.button.danger{background:#b3261e;color:white}
+@keyframes confirm-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:480px){.confirm-actions{flex-direction:column-reverse}.confirm-actions .button{width:100%}}

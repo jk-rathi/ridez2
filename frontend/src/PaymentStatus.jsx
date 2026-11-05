@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Banknote, Smartphone, CircleCheck } from 'lucide-react';
+import { useConfirm } from './ConfirmDialog';
 
 const money=value=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(value));
 
@@ -17,10 +18,11 @@ export function PaymentStatusLine({ride}) {
 
 // Shown on the driver's overview for every completed trip whose payment is not yet confirmed.
 export function DriverCollectCard({ride,perform,disabled}) {
+  const confirm=useConfirm();
   const payment=ride.payment;
   const choice=payment.method==='CASH'?'Rider will pay in cash':payment.method==='ONLINE'?'Rider is paying online…':'Rider hasn’t chosen how to pay yet';
   async function received(){
-    if(window.confirm(`Confirm you received ${money(payment.amount)} in cash from ${ride.rider.name}?`))await perform(`/rides/${ride.id}/confirm-cash`);
+    if(await confirm({title:`Received ${money(payment.amount)} in cash?`,message:`Confirm only after ${ride.rider.name} has paid you. This marks the trip as paid.`,confirmLabel:'Yes, cash received'}))await perform(`/rides/${ride.id}/confirm-cash`);
   }
   return <section className="collect-card" aria-label={`Collect payment from ${ride.rider.name}`}>
     <span className="collect-label">COLLECT PAYMENT</span>

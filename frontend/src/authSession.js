@@ -1,3 +1,4 @@
+import { secureFetch } from './secureChannel';
 // Access tokens live only in memory. The refresh cookie is HttpOnly.
 let session=null, pendingRefresh=null, generation=0, signingOut=false;
 const listeners=new Set(), knownTokens=new Set();
@@ -15,9 +16,8 @@ channel?.addEventListener('message',event=>{
 });
 const locked=action=>globalThis.navigator?.locks ? navigator.locks.request('ridez-refresh-cookie',action) : action();
 async function request(path,body,token) {
-  const response=await fetch(`/api/v1/auth/${path}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Session-Request':'1',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body || {})});
-  let data;
-  try{data=await response.json();}catch{data={error:'Unable to contact the session service. Please retry.'};}
+  const {response,data:received}=await secureFetch(`/api/v1/auth/${path}`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Session-Request':'1',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body || {})});
+  const data=received ?? {error:'Unable to contact the session service. Please retry.'};
   if(!response.ok){const error=new Error(data.error || 'Unable to update your session. Please retry.');error.status=response.status;throw error;}
   return data;
 }

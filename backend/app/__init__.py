@@ -69,7 +69,8 @@ def create_app(config=None):
     db.init_app(app)
     Migrate(app, db)
     from .routes import api
-    from . import ride_routes, test_payment_routes
+    from . import ride_routes, test_payment_routes, secure_channel
+    app.request_class = secure_channel.SecureRequest
     app.register_blueprint(api, url_prefix='/api/v1')
     from .realtime import init_realtime
     init_realtime(app)

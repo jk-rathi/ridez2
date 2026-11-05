@@ -163,3 +163,5 @@ After acceptance, rider screens put driver name, car number, model/colour, confi
 Record actual car details under **Admin → Drivers → Vehicle details** before the next booking. Each accepted ride snapshots the car number/model/colour. The admin cannot change the vehicle during an active trip, and later updates do not rewrite completed trips. Existing drivers/rides without recorded details show an explicit missing-information message. This update requires `flask --app run db upgrade` locally; Render applies migrations on startup. There are no new dependencies. See [vehicle and pickup details](docs/VEHICLE_DETAILS.md).
 
 Mock QR payment testing: see [TEST_PAYMENTS.md](TEST_PAYMENTS.md) for Render setup and the scan/simulate flow.
+
+Encrypted API traffic: the browser and API exchange encrypted JSON, so user data doesn't appear in the browser's Network tab. See [API encryption](docs/API_ENCRYPTION.md).

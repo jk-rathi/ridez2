@@ -165,3 +165,5 @@ Record actual car details under **Admin → Drivers → Vehicle details** before
 Mock QR payment testing: see [TEST_PAYMENTS.md](TEST_PAYMENTS.md) for Render setup and the scan/simulate flow.
 
 Encrypted API traffic: the browser and API exchange encrypted JSON, so user data doesn't appear in the browser's Network tab. See [API encryption](docs/API_ENCRYPTION.md).
+
+Admin analytics: charts of rides, fares, demand and payments for any date range, with an Excel export. See [admin analytics](docs/ADMIN_ANALYTICS.md).

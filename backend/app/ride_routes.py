@@ -184,3 +184,27 @@ def trip_map(ride_id):
 def update_driver_vehicle(driver_id):
     from .admin_service import save_driver_vehicle
     return jsonify(user=save_driver_vehicle(g.user, driver_id, body()))
+
+
+@api.get('/admin/analytics')
+@authenticated('admin')
+def admin_analytics():
+    from flask import request
+    from .analytics_service import summary
+    return jsonify(summary(request.args))
+
+
+@api.get('/admin/analytics/export')
+@authenticated('admin')
+def admin_analytics_export():
+    from flask import request
+    from .analytics_service import export
+    return jsonify(export(request.args))
+
+
+@api.get('/ride-history/export')
+@authenticated()
+def ride_history_export():
+    from flask import request
+    from .analytics_service import history_export
+    return jsonify(history_export(g.user, request.args))
